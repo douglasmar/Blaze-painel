@@ -1,53 +1,53 @@
-
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+import requests
 import pandas as pd
-import time
 from datetime import datetime
 import streamlit as st
 
-# Configurações do Chrome para rodar headless
-options = Options()
-options.add_argument('--headless')
-options.add_argument('--disable-gpu')
-options.add_argument('--no-sandbox')
+BLAZE_API = "https://blaze.com/api/roulette_games/recent"
 
-# URL da Blaze Double
-BLAZE_URL = "https://blaze.bet.br/pt/games/double?modal=double_history-v2_index&roomId=1"
-
-@st.cache_data(ttl=10)  # Atualiza a cada 10 segundos
+@st.cache_data(ttl=5)  # Atualiza a cada 5 segundos
 def get_blaze_results():
-    driver = webdriver.Chrome(options=options)
-    driver.get(BLAZE_URL)
-    time.sleep(5)  # Tempo para carregar os resultados
-
-    # Coleta dos elementos de histórico
     try:
-        circles = driver.find_elements("css selector", ".entry-color")[:50]  # Últimos 50
+        response = requests.get(BLAZE_API, timeout=5)
+        data = response.json()
     except:
-        driver.quit()
         return pd.DataFrame()
 
     results = []
-    for circle in circles:
-        color = circle.get_attribute("class").split(" ")[-1]
-        time_now = datetime.now().strftime("%H:%M:%S")
-        results.append({"hora": time_now, "cor": color})
+    for game in data[:50]:  # Últimos 50 resultados
+        ts = datetime.fromisoformat(game["created_at"].replace("Z", "+00:00"))
+        hora = ts.strftime("%H:%M:%S")
+        color_num = game["color"]
 
-    driver.quit()
+        # Mapeia cor da Blaze (0 = vermelho, 1 = preto, 2 = branco)
+        if color_num == 0:
+            color = "🔴 Vermelho"
+        elif color_num == 1:
+            color = "⚫ Preto"
+        elif color_num == 2:
+            color = "⚪ Branco"
+        else:
+            color = "❓ Desconhecido"
+
+        results.append({"Hora": hora, "Cor": color})
 
     df = pd.DataFrame(results)
 
-    # Filtrar: apenas se segundos == 00 (antes de cada minuto)
-    df = df[df['hora'].str.endswith(":00")]
+    # Filtrar só resultados no segundo 00
+    df = df[df["Hora"].str.endswith(":00")]
     return df
 
-# --- Streamlit UI ---
+# --- UI ---
 st.set_page_config(page_title="Painel Blaze Double", layout="centered")
-st.title("🎰 Painel Blaze Double – Resultados por Minuto")
-st.write("Mostrando os resultados com timestamp final **:00** (antes de cada minuto).")
+st.markdown("<h1 style='text-align:center;'>🎰 Painel Blaze Double</h1>", unsafe_allow_html=True)
+st.write("Exibindo resultados no exato **início de cada minuto**.")
 
 df_resultados = get_blaze_results()
 
-st.dataframe(df_resultados)
-st.info("Atualiza automaticamente a cada 10 segundos.")
+if df_resultados.empty:
+    st.warning("Nenhum resultado encontrado no momento. Aguarde a próxima rodada...")
+else:
+    st.table(df_resultados.style.hide(axis="index"))
+
+st.caption("Atualiza automaticamente a cada 5 segundos.")
+
