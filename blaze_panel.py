@@ -40,4 +40,4 @@ while True:
     else:
         st.write("Erro ao buscar resultados. Tentando novamente...")
     
-    time.sleep(5)
+    time.sleep(10)
