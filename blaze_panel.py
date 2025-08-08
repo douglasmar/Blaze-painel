@@ -46,3 +46,7 @@ while True:
         st.info("Atualizando em 5 segundos...")
     time.sleep(5)
     placeholder.empty()
+{
+  "numero": 7,
+  "cor": "preto"
+}
