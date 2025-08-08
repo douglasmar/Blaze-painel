@@ -1,4 +1,3 @@
-
 import websocket
 import json
 import pandas as pd
@@ -21,13 +20,13 @@ def on_message(ws, message):
             color_num = game["color"]
 
             if color_num == 0:
-                color = "🔴 Vermelho"
+                color = "Vermelho"
             elif color_num == 1:
-                color = "⚫ Preto"
+                color = "Preto"
             elif color_num == 2:
-                color = "⚪ Branco"
+                color = "Branco"
             else:
-                color = "❓ Desconhecido"
+                color = "Desconhecido"
 
             results.insert(0, {"Hora": hora, "Cor": color})
             results = results[:50]
@@ -59,6 +58,16 @@ def start_ws():
 
 Thread(target=start_ws, daemon=True).start()
 
+def color_to_html(color_str):
+    color_map = {
+        "Vermelho": "#FF0000",
+        "Preto": "#000000",
+        "Branco": "#FFFFFF",
+        "Desconhecido": "#888888",
+    }
+    color_hex = color_map.get(color_str, "#888888")
+    return f'<span style="display:inline-block; width:16px; height:16px; border-radius:50%; background-color:{color_hex}; margin-right:8px; border:1px solid #555;"></span>{color_str}'
+
 st.set_page_config(page_title="Painel Blaze Double - Ao Vivo", layout="centered")
 st.markdown("<h1 style='text-align:center;'>🎰 Painel Blaze Double - Tempo Real</h1>", unsafe_allow_html=True)
 st.write("Resultados aparecem assim que a rodada encerra.")
@@ -69,10 +78,15 @@ while True:
     if results:
         df = pd.DataFrame(results)
         df = df[df["Hora"].str.endswith(":00")]
-        placeholder.table(df.style.hide(axis="index"))
 
-        # Contar cores para gráfico
-        counts = df["Cor"].value_counts()
+        # Aplica html colorido
+        df["Cor"] = df["Cor"].apply(color_to_html)
+
+        # Exibe tabela com HTML habilitado
+        st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+
+        # Gráfico de barras com contagem das cores (texto simples)
+        counts = df["Cor"].str.replace(r'<[^>]+>', '', regex=True).value_counts()
         st.bar_chart(counts)
 
     time.sleep(1)
