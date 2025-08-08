@@ -1,117 +1,78 @@
-
+import websocket
+import json
+import pandas as pd
+from datetime import datetime
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
-import time
+from threading import Thread
+import os
 
-# Função para obter cores ao vivo da Blaze (simulando scraping de uma fonte pública)
-def obter_ultimas_cores():
+results = []
+
+def on_message(ws, message):
+    global results
     try:
-        url = "https://blaze.com/pt/games/double"  # URL pública da Blaze
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
+        data = json.loads(message)
+        if data.get("type") == "roulette":
+            game = data["payload"]
+            ts = datetime.fromisoformat(game["created_at"].replace("Z", "+00:00"))
+            hora = ts.strftime("%H:%M:%S")
+            color_num = game["color"]
 
-        # Procurar cores no HTML
-        historico = soup.find_all("div", class_="entry")
-        cores = []
-        for item in historico[:15]:  # pega os 15 últimos
-            if "red" in item["class"]:
-                cores.append("🔴")
-            elif "white" in item["class"]:
-                cores.append("⚪")
-            elif "black" in item["class"]:
-                cores.append("⚫")
-        return cores
+            if color_num == 0:
+                color = "🔴 Vermelho"
+            elif color_num == 1:
+                color = "⚫ Preto"
+            elif color_num == 2:
+                color = "⚪ Branco"
+            else:
+                color = "❓ Desconhecido"
+
+            results.insert(0, {"Hora": hora, "Cor": color})
+            results = results[:50]
+
+            # Salvar CSV
+            df_hist = pd.DataFrame(results)
+            df_hist.to_csv("blaze_history.csv", index=False)
     except Exception as e:
-        return ["Erro ao obter cores:", str(e)]
+        print(f"Erro ao processar mensagem: {e}")
 
-# Título do painel
-st.set_page_config(page_title="Painel Blaze - Cores ao Vivo", layout="centered")
-st.title("🎯 Painel de Cores da Blaze - Ao Vivo")
-st.write("As últimas cores do jogo *Double* na Blaze (atualização automática):")
+def on_error(ws, error):
+    print(f"Erro WebSocket: {error}")
 
-# Área dinâmica com atualização a cada X segundos
+def on_close(ws, close_status_code, close_msg):
+    print("Conexão WebSocket fechada")
+
+def on_open(ws):
+    print("Conectado ao WebSocket da Blaze")
+
+def start_ws():
+    ws = websocket.WebSocketApp(
+        "wss://api-v2.blaze.com/replication/?EIO=4&transport=websocket",
+        on_open=on_open,
+        on_message=on_message,
+        on_error=on_error,
+        on_close=on_close
+    )
+    ws.run_forever()
+
+Thread(target=start_ws, daemon=True).start()
+
+st.set_page_config(page_title="Painel Blaze Double - Ao Vivo", layout="centered")
+st.markdown("<h1 style='text-align:center;'>🎰 Painel Blaze Double - Tempo Real</h1>", unsafe_allow_html=True)
+st.write("Resultados aparecem assim que a rodada encerra.")
+
+df = pd.DataFrame(results)
+
 placeholder = st.empty()
 
 while True:
-    with placeholder.container():
-        cores = obter_ultimas_cores()
-        if isinstance(cores, list):
-            st.markdown(" ".join(cores))
-        else:
-            st.warning("Não foi possível carregar as cores.")
-        st.info("Atualizando em 5 segundos...")
-    time.sleep(5)
-    placeholder.empty()
-{
-  "numero": 7,
-  "cor": "preto"
-}
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-import pandas as pd
-import time
-from datetime import datetime
-import streamlit as st
+    if results:
+        df = pd.DataFrame(results)
+        df = df[df["Hora"].str.endswith(":00")]
+        placeholder.table(df.style.hide(axis="index"))
 
-# Configurações do Chrome headless
-options = Options()
-options.add_argument('--headless')
-options.add_argument('--disable-gpu')
-options.add_argument('--no-sandbox')
+        # Contar cores para gráfico
+        counts = df["Cor"].value_counts()
+        st.bar_chart(counts)
 
-BLAZE_URL = "https://blaze.bet.br/pt/games/double?modal=double_history-v2_index&roomId=1"
-
-@st.cache_data(ttl=5)  # Atualiza a cada 5 segundos
-def get_blaze_results():
-    driver = webdriver.Chrome(options=options)
-    driver.get(BLAZE_URL)
-    time.sleep(3)  # Aguarda carregamento
-
-    try:
-        # Captura últimas 20 entradas
-        circles = driver.find_elements("css selector", ".entry-color")[:20]
-    except:
-        driver.quit()
-        return pd.DataFrame()
-
-    results = []
-    for circle in circles:
-        color_class = circle.get_attribute("class").split(" ")[-1]
-        time_now = datetime.now().strftime("%H:%M:%S")
-
-        # Mapeia cor
-        if "red" in color_class:
-            color = "🔴 Vermelho"
-        elif "black" in color_class:
-            color = "⚫ Preto"
-        elif "white" in color_class:
-            color = "⚪ Branco"
-        else:
-            color = color_class
-
-        results.append({"Hora": time_now, "Cor": color})
-
-    driver.quit()
-
-    # Filtra somente :00
-    df = pd.DataFrame(results)
-    df = df[df['Hora'].str.endswith(":00")]
-    return df
-
-# --- UI ---
-st.set_page_config(page_title="Painel Blaze Double", layout="centered")
-st.markdown("<h1 style='text-align:center;'>🎰 Painel Blaze Double</h1>", unsafe_allow_html=True)
-st.write("Exibindo resultados no exato **início de cada minuto**.")
-
-df_resultados = get_blaze_results()
-
-if df_resultados.empty:
-    st.warning("Nenhum resultado encontrado no momento. Aguarde a próxima rodada...")
-else:
-    st.table(df_resultados.style.hide(axis="index"))
-
-st.caption("Atualiza automaticamente a cada 5 segundos.")
+    st.sleep(1)
