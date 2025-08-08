@@ -76,3 +76,101 @@ while True:
         st.bar_chart(counts)
 
     time.sleep(1)
+import streamlit as st
+import requests
+import websocket
+import json
+import threading
+
+# Configuração do tema Blaze
+st.set_page_config(
+    page_title="Painel Blaze Double",
+    page_icon="🎰",
+    layout="wide"
+)
+
+st.markdown(
+    """
+    <style>
+    body { background-color: #000000; color: white; }
+    .stButton>button {
+        background-color: #FF0000;
+        color: white;
+        font-weight: bold;
+    }
+    .result-box {
+        display: inline-block;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        margin: 5px;
+        text-align: center;
+        line-height: 60px;
+        font-weight: bold;
+        font-size: 18px;
+    }
+    .black { background-color: black; color: white; }
+    .red { background-color: red; color: white; }
+    .white { background-color: white; color: black; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Variáveis globais
+results = []
+
+# Função para autenticar na Blaze
+def login_blaze(email, password):
+    url = "https://blaze.com/api/auth/password"
+    payload = {"username": email, "password": password}
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(url, json=payload, headers=headers)
+    if response.status_code == 200:
+        return response.json().get("accessToken")
+    return None
+
+# Função para lidar com mensagens do WebSocket
+def on_message(ws, message):
+    data = json.loads(message)
+    if "payload" in data and "color" in data["payload"]:
+        color = data["payload"]["color"]
+        if color == 0:
+            results.insert(0, ("white", data["payload"]["roll"]))
+        elif color == 1:
+            results.insert(0, ("red", data["payload"]["roll"]))
+        elif color == 2:
+            results.insert(0, ("black", data["payload"]["roll"]))
+        if len(results) > 20:
+            results.pop()
+
+# Conexão WebSocket
+def start_ws(token):
+    ws = websocket.WebSocketApp(
+        "wss://api-v2.blaze.com/replication/?EIO=3&transport=websocket",
+        on_message=on_message
+    )
+    ws.run_forever()
+
+# Formulário de login
+st.title("🎰 Painel Blaze Double - Tempo Real")
+st.write("Digite seu login da Blaze para acompanhar as cores ao vivo.")
+
+with st.form("login_form"):
+    email = st.text_input("Email")
+    password = st.text_input("Senha", type="password")
+    submitted = st.form_submit_button("Entrar")
+
+if submitted:
+    token = login_blaze(email, password)
+    if token:
+        st.success("✅ Login realizado com sucesso!")
+        threading.Thread(target=start_ws, args=(token,), daemon=True).start()
+    else:
+        st.error("❌ Falha no login. Verifique seu email/senha.")
+
+# Mostrar resultados
+if results:
+    st.subheader("Últimos resultados:")
+    for color, number in results:
+        st.markdown(f'<div class="result-box {color}">{number}</div>', unsafe_allow_html=True)
