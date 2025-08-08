@@ -1,48 +1,64 @@
-
 import streamlit as st
 import requests
-from bs4 import BeautifulSoup
 import time
 
-# Função para obter cores ao vivo da Blaze (simulando scraping de uma fonte pública)
-def obter_ultimas_cores():
+st.set_page_config(page_title="Painel Blaze com Login", layout="centered")
+st.title("🎰 Painel Blaze Double com Login")
+
+if "token" not in st.session_state:
+    st.session_state.token = None
+
+def login_blaze(usuario, senha):
+    url_login = "https://blaze.com/api/auth/login"
+    payload = {"login": usuario, "password": senha}
     try:
-        url = "https://blaze.com/pt/games/double"  # URL pública da Blaze
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Procurar cores no HTML
-        historico = soup.find_all("div", class_="entry")
-        cores = []
-        for item in historico[:15]:  # pega os 15 últimos
-            if "red" in item["class"]:
-                cores.append("🔴")
-            elif "white" in item["class"]:
-                cores.append("⚪")
-            elif "black" in item["class"]:
-                cores.append("⚫")
-        return cores
+        res = requests.post(url_login, json=payload)
+        res.raise_for_status()
+        data = res.json()
+        return data.get("token")
     except Exception as e:
-        return ["Erro ao obter cores:", str(e)]
+        st.error(f"Erro ao logar: {e}")
+        return None
 
-# Título do painel
-st.set_page_config(page_title="Painel Blaze - Cores ao Vivo", layout="centered")
-st.title("🎯 Painel de Cores da Blaze - Ao Vivo")
-st.write("As últimas cores do jogo *Double* na Blaze (atualização automática):")
-
-# Área dinâmica com atualização a cada X segundos
-placeholder = st.empty()
-
-while True:
-    with placeholder.container():
-        cores = obter_ultimas_cores()
-        if isinstance(cores, list):
-            st.markdown(" ".join(cores))
+if st.session_state.token is None:
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
+    if st.button("Logar"):
+        token = login_blaze(usuario, senha)
+        if token:
+            st.session_state.token = token
+            st.success("Login efetuado com sucesso!")
+            st.experimental_rerun()
         else:
-            st.warning("Não foi possível carregar as cores.")
-        st.info("Atualizando em 5 segundos...")
-    time.sleep(5)
-    placeholder.empty()
+            st.error("Falha no login. Verifique usuário e senha.")
+else:
+    st.write("✅ Você está logado!")
+
+    headers = {"Authorization": f"Bearer {st.session_state.token}"}
+    API_URL = "https://blaze.com/api/roulette_games/recent"
+
+    placeholder = st.empty()
+
+    def cor_por_valor(valor):
+        if valor == 0:
+            return "🟢 Verde"
+        elif valor == 2:
+            return "⚫ Preto"
+        elif valor == 1:
+            return "🔴 Vermelho"
+        else:
+            return "❓"
+
+    while True:
+        try:
+            res = requests.get(API_URL, headers=headers)
+            res.raise_for_status()
+            resultados = res.json().get("items", [])
+            with placeholder.container():
+                st.write("Últimos resultados:")
+                for r in resultados[:10]:
+                    st.write(f"Número: {r['number']} - Cor: {cor_por_valor(r['color'])}")
+            time.sleep(5)
+        except Exception as e:
+            st.error(f"Erro ao buscar resultados: {e}")
+            break
