@@ -21,11 +21,11 @@ def login_blaze(usuario, senha):
         return None
 
 if st.session_state.token is None:
-    usuario = st.text_input("Usuário")
-    senha = st.text_input("Senha", type="password")
+    usuario = st.text_input("Usuário")douglaasmaques9@gmail.com
+    senha = st.text_input("Senha", type="password")Douglas.com8875
     if st.button("Logar"):
         token = login_blaze(usuario, senha)
-        if token:usuario:douglaasmarques9@gmai.com:senha:Douglas.com8875
+        if token:usuario
             st.session_state.token = token
             st.success("Login efetuado com sucesso!")
             st.experimental_rerun()
