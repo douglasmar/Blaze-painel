@@ -25,7 +25,7 @@ if st.session_state.token is None:
     senha = st.text_input("Senha", type="password")
     if st.button("Logar"):
         token = login_blaze(usuario, senha)
-        if token:
+        if token:usuario:douglaasmarques9@gmai.com:senha:Douglas.com8875
             st.session_state.token = token
             st.success("Login efetuado com sucesso!")
             st.experimental_rerun()
