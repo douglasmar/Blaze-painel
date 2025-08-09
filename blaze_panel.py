@@ -21,8 +21,8 @@ def login_blaze(usuario, senha):
         return None
 
 if st.session_state.token is None:
-    usuario = st.text_input("Usuário")douglaasmaques9@gmail.com
-    senha = st.text_input("Senha", type="password")Douglas.com8875
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
     if st.button("Logar"):
         token = login_blaze(usuario, senha)
         if token:usuario
