@@ -2,14 +2,14 @@ import streamlit as st
 import requests
 import time
 
-# Função para obter as últimas cores e números
+# ===== Função para obter últimos resultados =====
 def obter_ultimos_resultados():
     try:
         url = "https://blaze.com/api/roulette_games/recent"
         resposta = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
         dados = resposta.json()
 
-        # Se vier dicionário, pegar lista correta
+        # Garante que seja lista
         if isinstance(dados, dict):
             if "records" in dados:
                 dados = dados["records"]
@@ -17,11 +17,11 @@ def obter_ultimos_resultados():
                 return []
 
         resultados = []
-        for jogo in dados[:15]:
+        for jogo in dados[:15]:  # Pega só os 15 mais recentes
             cor = jogo.get("color")
             numero = jogo.get("roll")
 
-            # Define cor de fundo igual ao Blaze
+            # Define cor de fundo igual à Blaze
             if cor == 1:  # Vermelho
                 cor_bg = "#ff4d4d"
             elif cor == 2:  # Preto
@@ -57,13 +57,14 @@ def obter_ultimos_resultados():
     except Exception as e:
         return [f"<p>Erro: {e}</p>"]
 
-# Configuração do painel
+# ===== Configuração do painel =====
 st.set_page_config(page_title="Painel Blaze - Bolinhas", layout="centered")
 st.title("🎯 Painel da Blaze - Ao Vivo")
 st.write("Últimos resultados do jogo *Double* com visual da roleta:")
 
 placeholder = st.empty()
 
+# ===== Loop de atualização =====
 while True:
     with placeholder.container():
         resultados = obter_ultimos_resultados()
