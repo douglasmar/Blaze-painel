@@ -251,13 +251,13 @@ def main():
                 
                 # Info de atualização
                 st.info(f"📅 Última atualização: {datetime.now().strftime('%H:%M:%S')}")
-                st.markdown("**💡 Dica:** A página atualiza automaticamente a cada 15 segundos ou clique em 'Atualizar Agora'")
+                st.markdown("**💡 Dica:** A página atualiza automaticamente a cada 30 segundos ou clique em 'Atualizar Agora'")
             
             else:
                 st.error("❌ Não foi possível carregar os resultados")
 
-    # Auto-refresh a cada 15 segundos
-    time.sleep(15)
+    # Auto-refresh a cada 30 segundos
+    time.sleep(30)
     st.rerun()
 
 # ===== Execução =====
